@@ -119,10 +119,12 @@ void keyboard(unsigned char key, int x, int y)
         yView = yView - 0.3;
         glutPostRedisplay();
         break;
-    case 'w': // 当前方向往前走 
+    case 'w': case 'W': // 当前方向往前走
+        robot->WalkForward();
         glutPostRedisplay();
         break;
-    case 's': // 当前方向往后走 
+    case 's': case 'S': // 当前方向往后走 
+        robot->WalkBackward();
         glutPostRedisplay();
         break;
     case 'd': case 'D': // 顺时针旋转

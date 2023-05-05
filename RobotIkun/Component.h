@@ -5,6 +5,7 @@
 #include <cmath> 
 #include <iostream>
 #include <string>
+#include <map>
 #include <vector>
 #include "DrawTool.h"
 
@@ -18,49 +19,58 @@ protected:
 	float x = 0;    // x坐标
 	float y = 0;    // y坐标
 	float z = 0;    // z坐标
-	float angles[3] = { 0,0,0 };   // 与x, y, z轴的夹角
-	GLubyte color[3] = { 0, 0, 0 }; //颜色
 
+	float angleAxis[3] = { 0,0,0 };  //对应的旋转轴 
+	float angle = 0.0f; //对应的旋转角度
+	GLubyte color[3] = { 0, 0, 0 }; //颜色
+	float D2R(float angle) { return angle * PI / 180; }
 	void InitCoordinate();   //处理opengl的坐标系到对应位置和角度
+	std::map<string, Component*> sufPart;  // 有些小的部件依附于大的部件
 
 
 public:
-	
+	void AddSufPart(Component*);
 	const string label; // 标明这是哪一个部件
-
-	Component (string label1 , float x1 = 0, float y1 = 0, float z1 = 0,
-		GLubyte r = 0, GLubyte g = 0, GLubyte b = 0): 
-		label(label1), x(x1), y(y1), z(z1){
-		color[0] = r;
-		color[1] = g;
-		color[2] = b;
-	}
-	
+	const static float PI;	
 	Component(string label1, float position[3], GLubyte color[3]);
 	Component(string label1, GLubyte color[3]);
 	Component() {}
 
 	virtual void Display() = 0;   // 显示这个部件
 	void SetPosition(float newX, float newY, float newZ);   // 更改坐标
-	void SetAngles(float angleX, float angleY, float angleZ);  // 更改对应夹角
-	void SetColor(GLubyte r, GLubyte g, GLubyte b); // 更改颜色
-	void Flag(); // 在坐标位置画一个球，用于定位和调试
+	void SetPosition(float newPosition[3]);   // 更改坐标
 
-	const float& getX() const { return x; }
-	const float& getY() const { return y; }
-	const float& getZ() const { return z; }
-	const string& getLabel() const { return label; }
+	virtual void SetAngleAxis(float X, float Y, float Z);  // 更改旋转轴
+	void SetAngle(float angle1) { this->angle = angle1; }  // 更换旋转角
+	void WholeRotate(float angle, float x, float y, float z, int accumulate);
+	void SetColor(GLubyte r, GLubyte g, GLubyte b); // 更改颜色
+	void Flag(float r = 1); // 在坐标位置画一个球，用于定位和调试
+
+	const float& GetX() const { return x; }
+	const float& GetY() const { return y; }
+	const float& GetZ() const { return z; }
+	const float& GetAngle() const { return this->angle; }
+	void SetX(float x1) { this->x = x1; }
+	void SetY(float y1) { this->y = y1; }
+	void SetZ(float z1) { this->z = z1; }
+
+	const float* GetAngleAxis() const { return &angleAxis[0]; }
+	const string& GetLabel() const { return label; }
+
+
 };
 
 // 头
+class Body;
 class Head : public Component {
 private:
 	float scale[3] = { 1, 1, 1 }; //头是个立方体，对应的长宽高
+	Body* body = nullptr;
 
 public:
-	Head(string label1, float position[3], float scale[3], GLubyte color[3]);
+	Head(string label1, Body* body, float scale[3], GLubyte color[3]);
 	const float* getScale() const { return &scale[0]; }
-	void Display();
+	void Display() override;
 };
 
 // 头发
@@ -72,7 +82,7 @@ private:
 
 public:
 	Hair(Head* head, string label1, GLubyte color[3], float density1 = 0.01f, float linewidtdh1 = 0.5f);
-	void Display();
+	void Display() override;
 };
 
 // 眼睛， 每只眼睛作为一个对象
@@ -85,7 +95,7 @@ private:
 public:
 	// num 判断是左右眼，也可以加上更多的眼睛
 	Eye(Head* head, string label1, GLubyte color[3], int num, float r = 0.15, int accurate1 = 70);
-	void Display();
+	void Display() override;
 };
 
 // 嘴
@@ -99,7 +109,7 @@ private:
 public:
 	Mouth(Head* head, string label1, GLubyte color[3], float r = 0.15,
 		float ratio1 = 1.0f, int accurate1 = 70);
-	void Display();
+	void Display() override;
 };
 
 // 躯体
@@ -110,7 +120,7 @@ private:
 public:
 	Body(string label1, float position[3], float scale[3], GLubyte color[3]);
 	const float* getScale() const { return &scale[0]; }
-	void Display();
+	void Display() override;
 
 };
 
@@ -123,20 +133,19 @@ private:
 public:
 	Strip(Body* body, string label1, GLubyte color[3], float linewidth1 = 5);
 
-	void Display();
+	void Display() override;
 };
 
 // 关节的基类
 class Joint : public Component {
 protected:
-	Component* component = nullptr; // 关节承接的部件对象
 	float radius = 0.15f;
 	int slice = 20;
 
 public:
-	Joint(Component* component, string label1, GLubyte color[3], float r = 0.15f, int slice1 = 20);
-	void Display();
-	const float& getR() const { return this->radius; }
+	Joint(Component* preJoint, string label1, GLubyte color[3], float r = 0.15f, int slice1 = 20);
+	void Display() override;
+	const float& GetR() const { return this->radius; }
 };
 
 // 承接躯体的关节，一个关节作为一个对象
@@ -167,7 +176,6 @@ public:
 // 肢体的基类
 class Limb : public Component{
 protected:
-	Joint* joint = nullptr;   // 连接在哪个关节上
 	float radiusTop = 0.15f;
 	float radiusBottom = 0.15f;
 	float height = 1.0f;
@@ -175,18 +183,18 @@ protected:
 	int slice = 20;
 
 public:
-	Limb(Joint* joint, string label1, GLubyte color[3],
+	Limb(Joint* precursor, string label1, GLubyte color[3],
 		float r = 0.15, float h = 1.0f, int accurate1 = 70, int slice1 = 20);
-	void Display();
-	const float& getRTop() const { return this->radiusTop; }
-	const float& getRBottom() const { return this->radiusBottom; }
-	const float& getH() const { return this->height; }
+	void Display() override;
+	const float& GetRTop() const { return this->radiusTop; }
+	const float& GetRBottom() const { return this->radiusBottom; }
+	const float& GetH() const { return this->height; }
 };
 
 //大腿
 class Thigh : public Limb {
 public:
-	Thigh(Joint* joint, string label1, GLubyte color[3],
+	Thigh(Coxa* coxa, string labdel1, GLubyte color[3],
 		float r = 0.15, float h = 1.0f, int accurate1 = 70, int slice1 = 20);
 };
 
@@ -198,7 +206,7 @@ public:
 //小腿
 class Shank : public Limb {
 public:
-	Shank(Joint* joint, string label1, GLubyte color[3],
+	Shank(Knee* knee, string label1, GLubyte color[3],
 		float rTop = 0.15f, float rBottom = 0.1f, float h = 1.0f, int accurate1 = 70, int slice1 = 20);
 };
 
@@ -216,14 +224,14 @@ private:
 
 public:
 	Foot(Ankle* ankle, string label1, float scale[3], GLubyte color[3]);
-	const float* getScale() const { return &scale[0]; }
-	void Display();
+	const float* GetScale() const { return &scale[0]; }
+	void Display() override;
 };
 
 // 大臂
 class Boom : public Limb {
 public:
-	Boom(Joint* joint, string label1, GLubyte color[3], float r = 0.15f, float h = 1.0f,
+	Boom(Shoulder* shouler, string label1, GLubyte color[3], float r = 0.15f, float h = 1.0f,
 		int accurate1 = 70, int slice1 = 20);
 };
 
@@ -236,7 +244,7 @@ public:
 // 小臂
 class Forearm : public Limb {
 public:
-	Forearm(Elbow* joint, string label1, GLubyte color[3],
+	Forearm(Elbow* elbow, string label1, GLubyte color[3],
 		float rTop = 0.15f, float rBottom = 0.1f, float h = 1.0f, int accurate1 = 70, int slice1 = 20);
 };
 
@@ -260,7 +268,7 @@ private:
 public:
 	Hand(Wrist* wrist, string label1, GLubyte color[3], float r = 0.15f, float h = 0.1f,
 		float ratio1 = 1.0f, int accurate1 = 70, int slice1 = 20);
-	void Display();
+	void Display() override;
 };
 
 
