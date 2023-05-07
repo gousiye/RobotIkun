@@ -10,8 +10,11 @@ const float Component::PI = 3.14159;
 
 void Component::InitCoordinate()
 {
-	glTranslatef(this->x, this->y, this->z);
-	glRotatef(this->angle, angleAxis[0], angleAxis[1], angleAxis[2]);
+	glTranslatef(this->x, this->y, this->z); // 平移运动可以叠加，一个向量就够了
+	for (unsigned int i = 0; i < RotateMemo.size(); i++) {
+		RotateStruct& tmp = RotateMemo[i];
+		glRotatef(tmp.angle, tmp.x, tmp.y, tmp.z);
+	}
 	glColor3ub(this->color[0], this->color[1], this->color[2]);
 }
 
@@ -51,12 +54,6 @@ void Component::SetPosition(float newPosition[3]) {
 	this->z = newPosition[2];
 }
 
-void Component::SetAngleAxis(float X, float Y, float Z)
-{
-	this->angleAxis[0] = X;
-	this->angleAxis[1] = Y;
-	this->angleAxis[2] = Z;
-}
 
 void Component::SetColor(GLubyte r, GLubyte g, GLubyte b)
 {
@@ -74,8 +71,20 @@ void Component::Flag(float r)
 }
 
 void Component::WholeRotate(float angle, float x, float y, float z, int accumulate) {
-	this->SetAngleAxis(x, y, z);
-	this->SetAngle(this->angle + angle * accumulate);
+	// 同方向连续轴的旋转可以叠加
+	if (RotateMemo.size() > 0) {
+		RotateStruct& last = RotateMemo.back();
+		if (x == last.x && y == last.y && z == last.z) {
+			last.angle += angle;
+		}
+		else {
+			RotateMemo.emplace_back(angle, x, y, z);
+			RotateStruct tmp = RotateStruct(angle, x, y, z);
+		}
+	}
+	else {
+		RotateMemo.emplace_back(angle, x, y, z );
+	}
 }
 
 void Component::AddSufPart(Component* suffix) {
@@ -96,6 +105,7 @@ Head::Head(string label1, Body* body, float scale[3], GLubyte color[3]):
 	this->y = body->getScale()[1] / 2 + this->scale[1] / 2;
 	this->z = 0;
 	body->AddSufPart(this);
+	Memo();
 }
 
 void Head::Display()
@@ -120,6 +130,7 @@ Hair::Hair(Head* head, string label1, GLubyte color[3], float density1, float li
 	this->y = head->getScale()[1] / 2;
 	this->z = 0;
 	head->AddSufPart(this);
+	Memo();
 }
 
 void Hair::Display()
@@ -153,6 +164,7 @@ Eye::Eye(Head* head, string label1, GLubyte color[3], int num, float r, int accu
 	this->y = 1.0f / 4 * head->getScale()[1];
 	this->z = head->getScale()[2]/ 2 + 0.01;
 	head->AddSufPart(this);
+	Memo();
 }
 
 void Eye::Display()
@@ -172,6 +184,7 @@ Mouth::Mouth(Head* head, string label1, GLubyte color[3], float r, float ratio1,
 	this->y = - 1.0f / 4 * head->getScale()[1];
 	this->z =  head->getScale()[2] / 2 + 0.01;
 	head->AddSufPart(this);
+	Memo();
 }
 
 void Mouth::Display()
@@ -192,7 +205,8 @@ Body::Body(string label1, float position[3], float scale[3], GLubyte color[3]) :
 		this->scale[1] = scale[1];
 		this->scale[2] = scale[2];
 	}
-
+	Memo();
+	this->initY += scale[1] / 2;
 }
 
 void Body::Display()
@@ -222,6 +236,7 @@ Strip::Strip(Body * body, string label1, GLubyte color[3], float linewidth1):
 	this->y = 0;
 	this->z = 0;
 	body->AddSufPart(this);
+	Memo();
 }
 
 void Strip::Display()
@@ -236,9 +251,16 @@ void Strip::Display()
 			float tmpZ = j * this->body->getScale()[2] / 2.0f + 0.01 * j;
 			glBegin(GL_LINES);
 			glVertex3f(tmpX, tmpY, tmpZ);
-			glVertex3f(tmpX, tmpY -1 * this->body->getScale()[1], tmpZ);
+			if (j > 0)   // 正面是两个竖
+				glVertex3f(tmpX, tmpY - 1 * this->body->getScale()[1], tmpZ);
+			else   // 背面是联想电脑图标
+				glVertex3f(0, 0, -this->body->getScale()[2] / 2.0f - 0.01);
 			glEnd();
 		}
+		glBegin(GL_LINES);
+		glVertex3f(0, 0, -this->body->getScale()[2] / 2.0f - 0.01);
+		glVertex3f(0, -this->body->getScale()[1] / 2, -this->body->getScale()[2] / 2.0f - 0.01);
+		glEnd();
 	}
 	glLineWidth(1);
 	glPopMatrix();
@@ -283,6 +305,7 @@ Coxa::Coxa(Body* body, string label1, GLubyte color[3], int num, float r, int sl
 	this->z = 0;
 	void ChangeAngles(int variation[3]);
 	body->AddSufPart(this);
+	Memo();
 }
 
 Shoulder::Shoulder(Body* body, string label1, GLubyte color[3], int num, float r, int slice1):
@@ -293,6 +316,7 @@ Shoulder::Shoulder(Body* body, string label1, GLubyte color[3], int num, float r
 	this->y = body->getScale()[1] / 2.0f - this->radius / 2.0f;
 	this->z = 0;
 	body->AddSufPart(this);
+	Memo();
 }
 
 Limb::Limb(Joint* preJoint, string label1, GLubyte color[3], float r, float h,
@@ -323,6 +347,7 @@ Thigh::Thigh(Coxa* coxa, string label1, GLubyte color[3], float r, float h, int 
 	this->y = 0;
 	this->z = 0;
 	coxa->AddSufPart(this);
+	Memo();
 }
 
 Knee::Knee(Thigh* thigh, string label1, GLubyte color[3], float r, int slice1):
@@ -333,6 +358,7 @@ Knee::Knee(Thigh* thigh, string label1, GLubyte color[3], float r, int slice1):
 	this->y = -thigh->GetH() - this->radius;
 	this->z = 0;
 	thigh->AddSufPart(this);
+	Memo();
 }
 
 Shank::Shank(Knee* knee, string label1, GLubyte color[3], float rTop, float rBottom,
@@ -345,6 +371,7 @@ Shank::Shank(Knee* knee, string label1, GLubyte color[3], float rTop, float rBot
 	this->y = - knee->GetR();
 	this->z = 0;
 	knee->AddSufPart(this);
+	Memo();
 }
 
 Ankle::Ankle(Shank* shank, string label1, GLubyte color[3], float r, int slice):
@@ -355,6 +382,7 @@ Ankle::Ankle(Shank* shank, string label1, GLubyte color[3], float r, int slice):
 	this->y = - shank->GetH() - this->radius;
 	this->z = 0;
 	shank->AddSufPart(this);
+	Memo();
 }
 
 Foot::Foot(Ankle* ankle, string label1, float scale[3], GLubyte color[3]):
@@ -369,6 +397,7 @@ Foot::Foot(Ankle* ankle, string label1, float scale[3], GLubyte color[3]):
 	this->y = - ankle->GetR() / 2.0f - this->scale[1] / 2.0f;
 	this->z = this->scale[2] / 2.0f - ankle->GetR();
 	ankle->AddSufPart(this);
+	Memo();
 }
 
 void Foot::Display()
@@ -390,6 +419,7 @@ Boom::Boom(Shoulder* shoulder, string label1, GLubyte color[3], float r, float h
 	this->y = - shoulder->GetR() / 2.0f;
 	this->z = 0;
 	shoulder->AddSufPart(this);
+	Memo();
 
 }
 
@@ -401,6 +431,7 @@ Elbow::Elbow(Boom* boom, string label1, GLubyte color[3], float r, int slice):
 	this->y = - boom->GetH() - this->radius;
 	this->z = 0;
 	boom->AddSufPart(this);
+	Memo();
 }
 
 Forearm::Forearm(Elbow* elbow, string label1, GLubyte color[3], float rTop, float rBottom, 
@@ -413,6 +444,7 @@ Forearm::Forearm(Elbow* elbow, string label1, GLubyte color[3], float rTop, floa
 	this->y = - elbow->GetR();
 	this->z = 0;
 	elbow->AddSufPart(this);
+	Memo();
 }
 
 Wrist::Wrist(Forearm* forearm, string label1, GLubyte color[3], float r, int slice):
@@ -423,7 +455,7 @@ Wrist::Wrist(Forearm* forearm, string label1, GLubyte color[3], float r, int sli
 	this->y = - forearm->GetH() - this->radius;
 	this->z = 0;
 	forearm->AddSufPart(this);
-
+	Memo();
 }
 
 Hand::Hand(Wrist* wrist, string label1, GLubyte color[3], float r, float h, 
@@ -435,6 +467,7 @@ Hand::Hand(Wrist* wrist, string label1, GLubyte color[3], float r, float h,
 	this->y = - wrist->GetR() - this->radius;
 	this->z = 0;
 	wrist->AddSufPart(this);
+	Memo();
 }
 
 void Hand::Display()

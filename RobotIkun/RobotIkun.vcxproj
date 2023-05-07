@@ -141,12 +141,14 @@
   <ItemGroup>
     <ClCompile Include="Component.cpp" />
     <ClCompile Include="DrawTool.cpp" />
+    <ClCompile Include="MathOperation.cpp" />
     <ClCompile Include="Robot.cpp" />
     <ClCompile Include="RobotIkun.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Component.h" />
     <ClInclude Include="DrawTool.h" />
+    <ClInclude Include="MathOperation.h" />
     <ClInclude Include="Robot.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

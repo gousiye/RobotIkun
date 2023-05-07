@@ -9,6 +9,7 @@
 #include <vector>
 #include "DrawTool.h"
 
+
 using std::string;
 using std::vector;
 
@@ -16,19 +17,48 @@ using std::vector;
 class Component
 {
 protected:
+
+	struct RotateStruct {
+	public:
+		float x = 0;
+		float y = 0;
+		float z = 0;
+		float angle = 0;
+
+		RotateStruct(float angle1, float x1, float y1, float z1) {
+			angle = angle1;
+			x = x1;
+			y = y1;
+			z = z1;
+		}
+	};
+
+	// 当前的
 	float x = 0;    // x坐标
 	float y = 0;    // y坐标
 	float z = 0;    // z坐标
-
+	// 初始固定的
+	float initX = 0;
+	float initY = 0;
+	float initZ = 0;
+	
+	float savedAngle = 0;
 	float angleAxis[3] = { 0,0,0 };  //对应的旋转轴 
 	float angle = 0.0f; //对应的旋转角度
 	GLubyte color[3] = { 0, 0, 0 }; //颜色
+	vector<RotateStruct> RotateMemo;  //记录各种旋转属性
 	float D2R(float angle) { return angle * PI / 180; }
 	void InitCoordinate();   //处理opengl的坐标系到对应位置和角度
+	void Memo() {    // 记录初始的坐标，用于精确回复
+		initX = x;
+		initX = y;
+		initZ = z;
+	} 
 	std::map<string, Component*> sufPart;  // 有些小的部件依附于大的部件
-
+	unsigned int  traceBack = -1;  // 用于回溯到指定Rotate matrix
 
 public:
+
 	void AddSufPart(Component*);
 	const string label; // 标明这是哪一个部件
 	const static float PI;	
@@ -39,22 +69,76 @@ public:
 	virtual void Display() = 0;   // 显示这个部件
 	void SetPosition(float newX, float newY, float newZ);   // 更改坐标
 	void SetPosition(float newPosition[3]);   // 更改坐标
-
-	virtual void SetAngleAxis(float X, float Y, float Z);  // 更改旋转轴
-	void SetAngle(float angle1) { this->angle = angle1; }  // 更换旋转角
+	void Translate(float x, float y, float z) {
+		this->x += x;
+		this->y += y;
+		this->z += z;
+	}
+	void SaveRotateMatrix(float angle) {
+		savedAngle = angle;
+		if (RotateMemo.size() == 0) return;
+		traceBack = RotateMemo.size() - 1;
+	}
+	//回溯到之前保存的RotateMatrix
+	void Trace2Saved() {
+		if (traceBack == -1 || traceBack >= RotateMemo.size()) RotateMemo.clear();
+		int m = RotateMemo.size() - 1 - traceBack;
+		while (m--) {
+			RotateMemo.pop_back();
+		}
+		RotateMemo.back().angle = savedAngle;
+	}
 	void WholeRotate(float angle, float x, float y, float z, int accumulate);
+	void PopLastRotate() {
+		if (RotateMemo.size() == 0) return;
+		RotateMemo.pop_back();
+	}
 	void SetColor(GLubyte r, GLubyte g, GLubyte b); // 更改颜色
 	void Flag(float r = 1); // 在坐标位置画一个球，用于定位和调试
 
 	const float& GetX() const { return x; }
 	const float& GetY() const { return y; }
 	const float& GetZ() const { return z; }
-	const float& GetAngle() const { return this->angle; }
+
+	const float& GetInitX() const { return initX; }
+	const float& GetInitY() const { return initY; }
+	const float& GetInitZ() const { return initZ; }
+
+	const float GetAngle() const { 
+		if (RotateMemo.size() == 0) return -999;
+		else return RotateMemo.back().angle; }
+
+	const float GetRotateX() const { 
+		if (this->RotateMemo.size() == 0) return 0;
+		return RotateMemo.back().x;
+	}
+
+	const float GetRotateY() const {
+		if (this->RotateMemo.size() == 0) return 0;
+		return RotateMemo.back().y;
+	}
+
+	const float GetRotateZ() const {
+		if (this->RotateMemo.size() == 0) return 0;
+		return RotateMemo.back().z;
+	}
+	
+	const int& GetRotateSize() const { return this->RotateMemo.size(); }
+
 	void SetX(float x1) { this->x = x1; }
 	void SetY(float y1) { this->y = y1; }
 	void SetZ(float z1) { this->z = z1; }
 
-	const float* GetAngleAxis() const { return &angleAxis[0]; }
+	void SetCurrAngle(float angle1) { 
+		if (RotateMemo.size() == 0) return;
+		RotateMemo.back().angle = angle1; 
+	}
+	void SetCurrAxis(float x1, float y1, float z1) {
+		RotateMemo.back().x = x1;
+		RotateMemo.back().y = y1;
+		RotateMemo.back().z = z1;
+	}
+
 	const string& GetLabel() const { return label; }
 
 

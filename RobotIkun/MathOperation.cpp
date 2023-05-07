@@ -5,15 +5,13 @@
 
 const float  MathOperation::PI = 3.14159;
 
-void MathOperation::RotateAnyAxis(const float  const* pos, const float  const* axis, const float  theta, float * newPos) {
-	// std::cout << axis[0] << "   " << axis[1] << "   " << axis[2] << std::endl;
+void MathOperation::RotateAnyAxis(const float  *const pos, const float  *const axis, const float  theta, float * newPos) {
 
 	float  rotateMatrix[3][3] = { {0, 0, 0}, {0, 0, 0}, {0, 0, 0} };
 	float  cosTheta = cos(theta * PI / 180.0f);
 	float  sinTheta = sin(theta * PI / 180.0f);
 
 	float  x = axis[0], y = axis[1], z = axis[2];
-	// std::cout << x << "  " << y << "  " << z << std::endl;
 	float  sum = sqrt(x * x + y * y + z * z);
 	x = x / sum;
 	y = y / sum;
@@ -55,8 +53,7 @@ float  MathOperation::DotProduct(float  a[3], float  b[3])
 	return ans;
 }
 
-float  MathOperation::GetLen(float  a[3])
-{
+float  MathOperation::GetLen(float  a[3]){
 	float  len = 0.0f;
 	for (int i = 0; i < 3; i++) {
 		len += a[i] * a[i];

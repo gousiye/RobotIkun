@@ -6,11 +6,16 @@
 #include <map>
 #include <string>
 #include <cmath>
+#include <Windows.h>
+#include "MathOperation.h"
+#include <mutex>
 
 const float Robot::PI = 3.14159;
 
 Robot::Robot(int newX, int newY, int newZ):x(newX), y(newY), z(newZ)
 {
+	std::unique_lock<std::mutex> nothing1(m);   // unique_lock 得有mutex，要不然程序会崩溃
+	nothing = std::move(nothing1);
 }
 
 Robot::~Robot()
@@ -18,6 +23,11 @@ Robot::~Robot()
 	for (auto i : this->assembly) {
 		delete i.second;
 	}
+}
+
+void Robot::SetWindowDisplay(void(*displayFunc)())
+{
+	this->windowDisplay = displayFunc;
 }
 
 void Robot::AddComponet(const string& label, Component* part)
@@ -119,7 +129,7 @@ void Robot::Generate()
 
 	/*-----------------生成左大腿------------------*/
 	SetPartRadius(partRadius, leftCoxa->GetR());
-	SetPartProperty(partColor, (GLubyte)255, (GLubyte)255, (GLubyte)255);
+	SetPartProperty(partColor, (GLubyte)0, (GLubyte)0, (GLubyte)255);
 	Thigh* leftThigh = new Thigh(leftCoxa, "LeftThigh", partColor, partRadius, body->getScale()[1] * 0.5 + leftCoxa->GetR());
 	this->AddComponet(leftThigh->GetLabel(), leftThigh);
 	/*--------------------------------------------*/
@@ -259,10 +269,7 @@ void Robot::Generate()
 	this->AddComponet(rightHand->GetLabel(), rightHand);
 	/*-------------------------------------------*/
 
-
-
 }
-
 
 void Robot::Display()
 {
@@ -273,7 +280,6 @@ void Robot::Display()
 	assembly["Body"]->Display();    //通过身体绘制整个机器人
 	glPopMatrix();
 }
-
 
 void Robot::ClockwiseRotate()
 {
@@ -298,7 +304,7 @@ void Robot::WalkForward() {
 	auto leftKnee = assembly["LeftKnee"];
 	auto rightCoxa = assembly["RightCoxa"];
 	auto rightKnee = assembly["RightKnee"];
-	auto body = assembly["Body"];
+	Body* body = (Body*)assembly["Body"];
 
 	if (leftCoxa->GetAngle() <= -this->legLiftLimit) {
 		walkStep = 1;
@@ -310,25 +316,26 @@ void Robot::WalkForward() {
 	if (leftCoxa->GetAngle() < 0) {
 		leftShoulder->WholeRotate(-walkStep * armLiftRate, 1, 0, 0, 1);  
 		rightShoulder->WholeRotate(walkStep * armLiftRate, 1, 0, 0, 1); 
-		leftElbow->SetAngle(0);  // 保证每次走路是同样的，防止摆动角度没有正好到0导致角度逐渐错位
+		leftElbow->SetCurrAngle(0);  // 保证每次走路是同样的，防止摆动角度没有正好到0导致角度逐渐错位
 		rightElbow->WholeRotate(walkStep * armLiftRate * 1, 1, 0, 0, 1);
 		leftCoxa->WholeRotate(walkStep * this->legLiftRate, 1, 0, 0, 1);
 		rightCoxa->WholeRotate(-walkStep * this->legLiftRate, 1, 0, 0, 1);
 		leftKnee->WholeRotate(-walkStep * this->legLiftRate * 0.7, 1, 0, 0, 1);
-		rightKnee->SetAngle(0);
+		rightKnee->SetCurrAngle(0);
 
 	}
 	else {
 		leftShoulder->WholeRotate(-walkStep * armLiftRate, 1, 0, 0, 1);
 		rightShoulder->WholeRotate(walkStep * armLiftRate, 1, 0, 0, 1);
 		leftElbow->WholeRotate(-walkStep * armLiftRate * 1, 1, 0, 0, 1);
-		rightElbow->SetAngle(0);
+		rightElbow->SetCurrAngle(0);
 		leftCoxa->WholeRotate(walkStep * this->legLiftRate, 1, 0, 0, 1);
 		rightCoxa->WholeRotate(-walkStep * this->legLiftRate, 1, 0, 0, 1);
-		leftKnee->SetAngle(0);
+		leftKnee->SetCurrAngle(0);
 		rightKnee->WholeRotate(walkStep * this->legLiftRate * 0.7, 1, 0, 0, 1);
 	}
-	body->SetY(1 - body->GetY()* (1 - cos(leftCoxa->GetAngle() * PI / 180)));
+	body->SetY(body->GetInitY() - body->getScale()[1]* (1 - cos(leftCoxa->GetAngle() * PI / 180)));
+	//body->Translate(0, -body->getScale()[1] * (1 - cos(leftCoxa->GetAngle() * PI / 180)), 0);
 }
 
 void Robot::WalkBackward()
@@ -345,7 +352,7 @@ void Robot::WalkBackward()
 	auto leftKnee = assembly["LeftKnee"];
 	auto rightCoxa = assembly["RightCoxa"];
 	auto rightKnee = assembly["RightKnee"];
-	auto body = assembly["Body"];
+	Body* body = (Body*)assembly["Body"];
 
 	if (leftCoxa->GetAngle() >= this->legLiftLimit) {
 		walkStepb = -1;
@@ -357,25 +364,355 @@ void Robot::WalkBackward()
 	if (leftCoxa->GetAngle() < 0) {
 		leftShoulder->WholeRotate(-walkStepb * armLiftRate, 1, 0, 0, 1);
 		rightShoulder->WholeRotate(walkStepb * armLiftRate, 1, 0, 0, 1);
-		leftElbow->SetAngle(0);  
+		leftElbow->SetCurrAngle(0);  
 		rightElbow->WholeRotate(walkStepb * armLiftRate * 1, 1, 0, 0, 1);
 		leftCoxa->WholeRotate(walkStepb * this->legLiftRate, 1, 0, 0, 1);
 		rightCoxa->WholeRotate(-walkStepb * this->legLiftRate, 1, 0, 0, 1);
 		leftKnee->WholeRotate(-walkStepb * this->legLiftRate * 0.7, 1, 0, 0, 1);
-		rightKnee->SetAngle(0);
+		rightKnee->SetCurrAngle(0);
 
 	}
 	else {
 		leftShoulder->WholeRotate(-walkStepb * armLiftRate, 1, 0, 0, 1);
 		rightShoulder->WholeRotate(walkStepb * armLiftRate, 1, 0, 0, 1);
 		leftElbow->WholeRotate(-walkStepb * armLiftRate * 1, 1, 0, 0, 1);
-		rightElbow->SetAngle(0);
+		rightElbow->SetCurrAngle(0);
 		leftCoxa->WholeRotate(walkStepb * this->legLiftRate, 1, 0, 0, 1);
 		rightCoxa->WholeRotate(-walkStepb * this->legLiftRate, 1, 0, 0, 1);
-		leftKnee->SetAngle(0);
+		leftKnee->SetCurrAngle(0);
 		rightKnee->WholeRotate(walkStepb * this->legLiftRate * 0.7, 1, 0, 0, 1);
 	}
-	body->SetY(1 - body->GetY() * (1 - cos(leftCoxa->GetAngle() * PI / 180)));
+	body->SetY(body->GetInitY() - body->getScale()[1] * (1 - cos(leftCoxa->GetAngle() * PI / 180)));
+}
+
+void Robot::TurnFrontBack(bool toward) {
+
+
+
+	if (this->turn <= 180) {
+		while (this->turn <= 180) {
+			cv.wait(nothing, [this] {return !this->IsPause(); });
+			if (toward) this->ClockwiseRotate();
+			else this->AntiClockwiseRotate();
+			this->WindowDisplay();
+			Sleep(10);
+		}
+		turn = 180;
+	}
+	else {
+		while (this->turn >= 180) {
+			cv.wait(nothing, [this] {return !this->IsPause(); });
+			// cv.wait(nothing, [this] {return !this->IsPause(); });
+			if (toward) this->AntiClockwiseRotate();
+			else this->ClockwiseRotate();
+			this->WindowDisplay();
+			Sleep(10);
+		}
+		turn = 180;
+	}
+}
+
+void Robot::WalkStand()
+{
+	auto leftCoxa = this->assembly["LeftCoxa"];
+	auto rightCoxa = this->assembly["RightCoxa"];
+	float orignAngle = leftCoxa->GetAngle();
+	while (orignAngle * leftCoxa->GetAngle() > 0) {
+		cv.wait(nothing, [this] {return !this->IsPause(); });
+		this->WalkBackward();
+		this->WindowDisplay();
+		Sleep(20);
+	}
+	rightCoxa->SetCurrAngle(0);
+	leftCoxa->SetCurrAngle(0);
+}
+
+void Robot::HorseStep()
+{
+	auto leftShoulder = this->assembly["LeftShoulder"];
+	auto rightShoulder = this->assembly["RightShoulder"];
+	auto leftElbow = this->assembly["LeftElbow"];
+	auto rightElbow = this->assembly["RightElbow"];
+	auto leftCoxa = this->assembly["LeftCoxa"];
+	Thigh* leftThigh = (Thigh*)this->assembly["LeftThigh"];
+	auto rightCoxa = this->assembly["RightCoxa"];
+	Knee* leftKnee = (Knee*)this->assembly["LeftKnee"];
+	auto rightKnee = this->assembly["RightKnee"];
+	auto body = this->assembly["Body"];
+
+	// 这里只算上了大腿弯曲带来的下降，小腿的情况太复杂了
+	float posThigh[3] = { 0, -leftThigh->GetH(), 0 };
+	float newPosThigh[3] = { 0, 0, 0 };
+	while (rightCoxa->GetAngle() <= this->HorseStepLimit) {
+		cv.wait(nothing, [this] {return !this->IsPause(); });
+		leftShoulder->WholeRotate(-this->HorseStepRate * 0.5, 1, 0.5, -1, 1);
+		leftElbow->WholeRotate(-this->HorseStepRate * 3, 1, 2, 0, 1);
+
+		rightShoulder->WholeRotate(this->HorseStepRate * 0.5, -1, 0.5, -1, 1);
+		rightElbow->WholeRotate(this->HorseStepRate * 3, -1, 2, 0, 1);
+		rightCoxa->WholeRotate(this->HorseStepRate, -1, 0.5, -1, 1);
+		leftCoxa->WholeRotate(-this->HorseStepRate, 1, 0.5, -1, 1);
+		float axis[3] = { 1, 0.5 , -1 };
+		MathOperation::RotateAnyAxis(posThigh, axis, -this->HorseStepRate, newPosThigh);
+		body->SetY(body->GetY() + posThigh[1] - newPosThigh[1]);
+		this->HorseStepHeight.push(newPosThigh[1] - posThigh[1]);  //压栈用于恢复
+		posThigh[0] = newPosThigh[0];
+		posThigh[1] = newPosThigh[1];
+		posThigh[2] = newPosThigh[2];
+		rightKnee->WholeRotate(-this->HorseStepRate, -1, 0.5, -1, 1);
+		leftKnee->WholeRotate(this->HorseStepRate, 1, 0.5, -1, 1);
+		body->WholeRotate(this->HorseStepRate / 3, 1, 0, 0, 1);
+		this->WindowDisplay();
+		Sleep(20);
+	}
+}
+
+// 受限于数学物理知识，没有经过计算，只是凭感觉调参, 动作可能不标准
+void Robot::Swing() {
+	auto leftCoxa = this->assembly["LeftCoxa"];
+	auto rightCoxa = this->assembly["RightCoxa"];
+	auto leftKnee = this->assembly["LeftKnee"];
+	auto rightKnee = this->assembly["RightKnee"];
+	auto body = this->assembly["Body"];
+	auto rightElbow = this->assembly["RightElbow"];
+
+
+	Sleep(50);
+	bool isFirst = 1;
+	// 侧身
+	while (isFirst || abs(body->GetAngle()) <= this->SwingLimit) {
+		cv.wait(nothing, [this] {return !this->IsPause(); });
+		isFirst = 0;
+		body->WholeRotate(1, 0, 0, 1, 1);  //二次转动
+		rightCoxa->WholeRotate(-0.8, 0, 0, 1, 1);
+		leftCoxa->WholeRotate(-1.5, 0, 0, 1, 1);
+		leftKnee->WholeRotate(2, -2, 1, 0, 1);
+		this->WindowDisplay();
+		Sleep(20);
+	}
+	Sleep(50);
+
+	// 初始状态下往右上顶
+	isFirst = 1;
+	float moveVector[3] = { 0, 0, 0 };
+	float originVector[3] = { 0, 0, 0 };
+	while (isFirst || abs(leftCoxa->GetAngle()) <= this->SwingLimit) {
+		cv.wait(nothing, [this] {return !this->IsPause(); });
+		isFirst = 0;
+		leftCoxa->WholeRotate(-3, 0, 1, 1, 1);
+		leftKnee->WholeRotate(-this->HorseStepRate, 1, 0.5, -1, 1);
+		rightCoxa->WholeRotate(5, 0, 1, 1, 1);
+		rightKnee->WholeRotate(this->HorseStepRate, -1, 0.5, -1, 1);
+		body->Translate(-0.03, 0.05, 0);
+		this->WindowDisplay();
+		Sleep(20);
+	}
+	originVector[0] = body->GetX();
+	originVector[1] = body->GetY();
+	originVector[2] = body->GetZ();
+	Sleep(50);
+
+	// 定为基准矩阵，每次右上角顶后需要同步到这些旋转矩阵
+	leftCoxa->SaveRotateMatrix(leftCoxa->GetAngle());
+	rightCoxa->SaveRotateMatrix(rightCoxa->GetAngle());
+	leftKnee->SaveRotateMatrix(leftKnee->GetAngle());
+	rightKnee->SaveRotateMatrix(rightKnee->GetAngle());
+
+	// int m = 2;
+	while (1) {
+		// 往左下回
+		isFirst = 1;
+		while (isFirst || abs(leftCoxa->GetAngle()) <= this->SwingLimit) {
+			cv.wait(nothing, [this] {return !this->IsPause(); });
+			isFirst = 0;
+			leftCoxa->WholeRotate(3, 0, 1, 1, 1);
+			leftKnee->WholeRotate(this->HorseStepRate, 1, 0.5, -1, 1);
+			rightCoxa->WholeRotate(-5, 0, 1, 1, 1);
+			rightKnee->WholeRotate(-this->HorseStepRate, -1, 0.5, -1, 1);
+			body->Translate(0.05, -0.06, 0);
+			this->WindowDisplay();
+			Sleep(20);
+		}
+		Sleep(50);
+
+		// 往右下顶
+		isFirst = 1;
+		while (isFirst || abs(leftCoxa->GetAngle()) <= 3 * this->SwingLimit) {
+			cv.wait(nothing, [this] {return !this->IsPause(); });
+			isFirst = 0;
+			leftCoxa->WholeRotate(3.5, 0.5, 1, 0, 1);
+			leftKnee->WholeRotate(-this->HorseStepRate * 1.4, 1, 0.5, -1, 1);
+			rightCoxa->WholeRotate(-1.5, 0, 0, 1, 1);
+			rightKnee->WholeRotate(this->HorseStepRate * 0.3, -1, 0.5, -1, 1);
+			body->Translate(-0.06, -0.02, 0);
+			this->WindowDisplay();
+			Sleep(20);
+		}
+
+		Sleep(50);
+		// 往左上顶
+		isFirst = 1;
+		while (isFirst || abs(leftCoxa->GetAngle()) <= this->SwingLimit) {
+			cv.wait(nothing, [this] {return !this->IsPause(); });
+			isFirst = 0;
+			leftCoxa->WholeRotate(-3.5f / 3, 0.5, 0, -3, 1);
+			leftKnee->WholeRotate(this->HorseStepRate * 0.5, 1, 0.5, -1, 1);
+			rightCoxa->WholeRotate(2, 0, 0, 1, 1);
+			//rightKnee->WholeRotate(-* this->HorseStepRate , -1, 0.5, -1, 1);
+			body->Translate(0.06, 0.02, 0);
+			this->WindowDisplay();
+			Sleep(20);
+		}
+
+		// 往右上顶, body和各个部件的旋转矩阵要与上一次右上顶的相同，保证整套动作能一直重复下去
+		isFirst = 1;
+		moveVector[0] = originVector[0] - body->GetX();
+		moveVector[1] = originVector[1] - body->GetY();
+		moveVector[2] = originVector[2] - body->GetZ();
+		float step = 0.1;
+		while (1) {
+			cv.wait(nothing, [this] {return !this->IsPause(); });
+			isFirst = 0;
+			leftCoxa->WholeRotate(-4, -1, 0, 2, 1);
+			leftKnee->WholeRotate(-this->HorseStepRate * 0.5, 1, 0.5, -1, 1);
+			rightCoxa->WholeRotate(3, 1, 0, 1, 1);
+			rightKnee->WholeRotate(this->HorseStepRate * 0.5, -1, 0.5, -1, 1);
+			body->Translate(moveVector[0] * step, moveVector[1] * step, moveVector[2] * step);
+			if (abs(originVector[1] - body->GetY()) <= 0.1) break;
+			this->WindowDisplay();
+			Sleep(20);
+		}
+
+		leftCoxa->Trace2Saved();
+		rightCoxa->Trace2Saved();
+		leftKnee->Trace2Saved();
+		rightKnee->Trace2Saved();
+		this->WindowDisplay();
+
+		if (this->stopSwing) {
+			this->stopSwing = 0;
+			return;
+		}
+	}
+}
+
+void Robot::ResetSwing() {
+	bool isFirst = 1;
+	auto leftCoxa = this->assembly["LeftCoxa"];
+	auto rightCoxa = this->assembly["RightCoxa"];
+	auto leftKnee = this->assembly["LeftKnee"];
+	auto rightKnee = this->assembly["RightKnee"];
+	auto body = this->assembly["Body"];
+	auto rightElbow = this->assembly["RightElbow"];
+
+
+	// 回复到侧身姿态
+	while (isFirst || abs(leftCoxa->GetAngle()) >= 0.0001) {
+		cv.wait(nothing, [this] {return !this->IsPause(); });
+		body->Translate(0.03, -0.05, 0);
+		isFirst = 0;
+		rightKnee->WholeRotate(-this->HorseStepRate, -1, 0.5, -1, 1);
+		rightCoxa->WholeRotate(-5, 0, 1, 1, 1);
+		leftKnee->WholeRotate(this->HorseStepRate, 1, 0.5, -1, 1);
+		leftCoxa->WholeRotate(3, 0, 1, 1, 1);
+		this->WindowDisplay();
+		Sleep(20);
+	}
+
+
+	Component* container[5] = { leftCoxa, leftKnee, rightCoxa, rightKnee, body };
+	for (Component* i : container) {
+		while (abs(i->GetAngle()) <= 0.01) i->PopLastRotate();
+	}
+
+	Sleep(50);
+
+
+	// 回复到扎马步姿态
+	isFirst = 1;
+	while (isFirst || abs(body->GetAngle()) >= 0.0001) {
+		cv.wait(nothing, [this] {return !this->IsPause(); });
+		isFirst = 0;
+		leftKnee->WholeRotate(-2, -2, 1, 0, 1);
+		leftCoxa->WholeRotate(1.5, 0, 0, 1, 1);
+		rightCoxa->WholeRotate(0.8, 0, 0, 1, 1);
+		body->WholeRotate(-1, 0, 0, 1, 1);
+		this->WindowDisplay();
+		Sleep(20);
+	}
+
+	for (Component* i : container) {
+		while (abs(i->GetAngle()) <= 0.01) i->PopLastRotate();
+	}
+
+	Sleep(50);
+}
+
+void Robot::ResetHorseStep()
+{
+	auto leftCoxa = this->assembly["LeftCoxa"];
+	auto rightCoxa = this->assembly["RightCoxa"];
+	auto leftKnee = this->assembly["LeftKnee"];
+	auto rightKnee = this->assembly["RightKnee"];
+	auto body = this->assembly["Body"];
+	auto leftShoulder = this->assembly["LeftShoulder"];
+	auto rightShoulder = this->assembly["RightShoulder"];
+	auto leftElbow = this->assembly["LeftElbow"];
+	auto rightElbow = this->assembly["RightElbow"];
+	//std::cout << rightCoxa->GetRotateX() << "   " << rightCoxa->GetRotateY() << "   " << rightCoxa->GetRotateZ() << "     " << rightCoxa->GetAngle() << std::endl;
+
+	while (rightCoxa->GetAngle() > 0) {
+		cv.wait(nothing, [this] {return !this->IsPause(); });
+		body->WholeRotate(-this->HorseStepRate / 3, body->GetRotateX(), body->GetRotateY(), body->GetRotateZ(), 1);
+
+		leftShoulder->WholeRotate(this->HorseStepRate * 0.5, leftShoulder->GetRotateX(), leftShoulder->GetRotateY(), leftShoulder->GetRotateZ(), 1);
+		leftElbow->WholeRotate(this->HorseStepRate * 3, leftElbow->GetRotateX(), leftElbow->GetRotateY(), leftElbow->GetRotateZ(), 1);
+
+		rightShoulder->WholeRotate(-this->HorseStepRate * 0.5, rightShoulder->GetRotateX(), rightShoulder->GetRotateY(), rightShoulder->GetRotateZ(), 1);
+		rightElbow->WholeRotate(-this->HorseStepRate * 3, rightElbow->GetRotateX(), rightElbow->GetRotateY(), rightElbow->GetRotateZ(), 1);
+
+		rightCoxa->WholeRotate(-this->HorseStepRate, rightCoxa->GetRotateX(), rightCoxa->GetRotateY(), rightCoxa->GetRotateZ(), 1);
+		leftCoxa->WholeRotate(this->HorseStepRate, 1, 0.5, -1, 1);
+
+		rightKnee->WholeRotate(this->HorseStepRate, rightKnee->GetRotateX(), rightKnee->GetRotateY(), rightKnee->GetRotateZ(), 1);
+		leftKnee->WholeRotate(-this->HorseStepRate, leftKnee->GetRotateX(), leftKnee->GetRotateY(), leftKnee->GetRotateZ(), 1);
+
+		float h = this->HorseStepHeight.top();
+		HorseStepHeight.pop();
+		body->Translate(0, h ,0);
+		this->WindowDisplay();
+		Sleep(20);
+	}
+	// 弥补Swing可能因为精度导致的误差，做到完全恢复状态
+	body->SetY(body->GetInitY());;
+	this->WindowDisplay();
+	Sleep(20);
+
+	// 两个相同的旋转可以抵消掉
+	leftShoulder->PopLastRotate(); //leftShoulder->PopLastRotate();
+	leftElbow->PopLastRotate(); //leftElbow->PopLastRotate();
+	rightShoulder->PopLastRotate();  //rightShoulder->PopLastRotate(); 
+	leftCoxa->PopLastRotate(); //leftCoxa->PopLastRotate();
+	rightCoxa->PopLastRotate(); //rightCoxa->PopLastRotate();
+	leftKnee->PopLastRotate(); //le/ftKnee->PopLastRotate(); 
+	rightKnee->PopLastRotate(); //rightKnee->PopLastRotate();
+	body->PopLastRotate();  //body->PopLastRotate();
+}
+
+void Robot::Reset() {
+	this->ResetSwing();
+	this->ResetHorseStep();
+}
+
+void Robot::Dance() {
+	this->TurnFrontBack(0);   // 铁山靠要先背靠屏幕
+	this->WalkStand();   // 然后转为立正姿势
+	Sleep(500);   // 0.5s 的准备时间 
+	this->HorseStep();  //扎马步，抬手臂，进入准备姿势
+    this->Swing();   //铁山靠的摇摆
+	Sleep(500);
+	this->Reset();
+	this->UnlockMyMutex();  // 解锁，表明铁山靠动作做完了
 }
 
 void Robot::Greeting() {

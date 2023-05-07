@@ -27,6 +27,9 @@
     <ClCompile Include="DrawTool.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="MathOperation.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Component.h">
@@ -36,6 +39,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="DrawTool.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MathOperation.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
