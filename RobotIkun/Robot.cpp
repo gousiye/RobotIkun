@@ -72,7 +72,6 @@ void Robot::Generate()
 
 	/*---------------生成头----------------*/
 	SetPartProperty(partScale, 0.7f, 0.7f, 0.7f);
-	SetPartProperty(partPosition, 0.0f, partScale[1] / 2.0f, 0.0f);
 	SetPartProperty(partColor, (GLubyte)220, (GLubyte)184, (GLubyte)188);
 	Head* head = new Head("Head", body, partScale, partColor);
 	this->AddComponet(head->GetLabel(), head);
@@ -273,7 +272,6 @@ void Robot::Generate()
 
 void Robot::Display()
 {
-	// 遍历显示每个部件
 	glPushMatrix();
 	glTranslatef(this->x, this->y, this->z);    // 机器人当前的位置
 	glRotatef(this->turn, 0, 1, 0);   // 机器人当前的朝向
@@ -416,6 +414,8 @@ void Robot::WalkStand()
 {
 	auto leftCoxa = this->assembly["LeftCoxa"];
 	auto rightCoxa = this->assembly["RightCoxa"];
+	auto leftShoulder = this->assembly["LeftShoulder"];
+	auto rightShoulder = this->assembly["RightShoulder"];
 	float orignAngle = leftCoxa->GetAngle();
 	while (orignAngle * leftCoxa->GetAngle() > 0) {
 		cv.wait(nothing, [this] {return !this->IsPause(); });
@@ -423,8 +423,12 @@ void Robot::WalkStand()
 		this->WindowDisplay();
 		Sleep(20);
 	}
-	rightCoxa->SetCurrAngle(0);
-	leftCoxa->SetCurrAngle(0);
+	rightCoxa->Trace2Saved();
+	leftCoxa->Trace2Saved();
+	leftShoulder->Trace2Saved();
+	rightShoulder->Trace2Saved();
+	this->WindowDisplay();
+	Sleep(20);
 }
 
 void Robot::HorseStep()
@@ -447,9 +451,9 @@ void Robot::HorseStep()
 		cv.wait(nothing, [this] {return !this->IsPause(); });
 		leftShoulder->WholeRotate(-this->HorseStepRate * 0.5, 1, 0.5, -1, 1);
 		leftElbow->WholeRotate(-this->HorseStepRate * 3, 1, 2, 0, 1);
-
 		rightShoulder->WholeRotate(this->HorseStepRate * 0.5, -1, 0.5, -1, 1);
 		rightElbow->WholeRotate(this->HorseStepRate * 3, -1, 2, 0, 1);
+
 		rightCoxa->WholeRotate(this->HorseStepRate, -1, 0.5, -1, 1);
 		leftCoxa->WholeRotate(-this->HorseStepRate, 1, 0.5, -1, 1);
 		float axis[3] = { 1, 0.5 , -1 };
@@ -490,7 +494,6 @@ void Robot::Swing() {
 		this->WindowDisplay();
 		Sleep(20);
 	}
-	Sleep(50);
 
 	// 初始状态下往右上顶
 	isFirst = 1;
@@ -513,10 +516,10 @@ void Robot::Swing() {
 	Sleep(50);
 
 	// 定为基准矩阵，每次右上角顶后需要同步到这些旋转矩阵
-	leftCoxa->SaveRotateMatrix(leftCoxa->GetAngle());
-	rightCoxa->SaveRotateMatrix(rightCoxa->GetAngle());
-	leftKnee->SaveRotateMatrix(leftKnee->GetAngle());
-	rightKnee->SaveRotateMatrix(rightKnee->GetAngle());
+	leftCoxa->SaveRotateMatrix();
+	rightCoxa->SaveRotateMatrix();
+	leftKnee->SaveRotateMatrix();
+	rightKnee->SaveRotateMatrix();
 
 	// int m = 2;
 	while (1) {
@@ -611,10 +614,10 @@ void Robot::ResetSwing() {
 		cv.wait(nothing, [this] {return !this->IsPause(); });
 		body->Translate(0.03, -0.05, 0);
 		isFirst = 0;
-		rightKnee->WholeRotate(-this->HorseStepRate, -1, 0.5, -1, 1);
-		rightCoxa->WholeRotate(-5, 0, 1, 1, 1);
-		leftKnee->WholeRotate(this->HorseStepRate, 1, 0.5, -1, 1);
-		leftCoxa->WholeRotate(3, 0, 1, 1, 1);
+		rightKnee->WholeRotate(-this->HorseStepRate, rightKnee->GetRotateX(), rightKnee->GetRotateY(), rightKnee->GetRotateZ(), 1);
+		rightCoxa->WholeRotate(-5, rightCoxa->GetRotateX(), rightCoxa->GetRotateY(), rightCoxa->GetRotateZ(), 1);
+		leftKnee->WholeRotate(this->HorseStepRate, leftKnee->GetRotateX(), leftKnee->GetRotateY(), leftKnee->GetRotateZ(), 1);
+		leftCoxa->WholeRotate(3, leftCoxa->GetRotateX(), leftCoxa->GetRotateY(), leftCoxa->GetRotateZ(), 1);
 		this->WindowDisplay();
 		Sleep(20);
 	}
@@ -633,10 +636,10 @@ void Robot::ResetSwing() {
 	while (isFirst || abs(body->GetAngle()) >= 0.0001) {
 		cv.wait(nothing, [this] {return !this->IsPause(); });
 		isFirst = 0;
-		leftKnee->WholeRotate(-2, -2, 1, 0, 1);
-		leftCoxa->WholeRotate(1.5, 0, 0, 1, 1);
-		rightCoxa->WholeRotate(0.8, 0, 0, 1, 1);
-		body->WholeRotate(-1, 0, 0, 1, 1);
+		leftKnee->WholeRotate(-2, leftKnee->GetRotateX(), leftKnee->GetRotateY(), leftKnee->GetRotateZ(), 1);
+		leftCoxa->WholeRotate(1.5, leftCoxa->GetRotateX(), leftCoxa->GetRotateY(), leftCoxa->GetRotateZ(), 1);
+		rightCoxa->WholeRotate(0.8, rightCoxa->GetRotateX(), rightCoxa->GetRotateY(), rightCoxa->GetRotateZ(), 1);
+		body->WholeRotate(-1, body->GetRotateX(), body->GetRotateY(), body->GetRotateZ(), 1);
 		this->WindowDisplay();
 		Sleep(20);
 	}

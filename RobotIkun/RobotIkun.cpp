@@ -92,7 +92,7 @@ void reshape(int w1, int h1)
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     glTranslatef(0.0, 0.0, -8.0);
-    display();
+    display();   // 窗口在拉伸的时候不会黑屏，仍然会有相应的图像。
 }
 
 
@@ -138,10 +138,12 @@ void keyboard(unsigned char key, int x, int y)
         break;
     case ENTER:   // 回车键开始铁山靠
     {
-        robot->LockMyMutex(); // 上锁
-        std::thread dance(&Robot::Dance, robot);  // 在做铁山靠的时候能够转动视角
-        dance.detach();  // 主线程可以先结束的
-        glutPostRedisplay();
+        if (!robot->IsLock()) {
+            robot->LockMyMutex(); // 上锁
+            std::thread dance(&Robot::Dance, robot);  // 在做铁山靠的时候能够转动视角
+            dance.detach();  // 主线程可以先结束的
+        }
+        glutPostRedisplay();    
         break;
     }
     case SPACE:  //空格暂停， 开始, 通过条件变量来实现
@@ -161,6 +163,12 @@ void keyboard(unsigned char key, int x, int y)
         break;
     case 'a': case 'A': // 逆时针旋转 
         robot->AntiClockwiseRotate();
+        glutPostRedisplay();
+        break;
+    case 'o': case 'O' :    // 视角还原
+        xView = 0;
+        yView = 0;
+        zView = 10;
         glutPostRedisplay();
         break;
     case 'e': case 'E': //退出

@@ -43,8 +43,6 @@ protected:
 	float initZ = 0;
 	
 	float savedAngle = 0;
-	float angleAxis[3] = { 0,0,0 };  //对应的旋转轴 
-	float angle = 0.0f; //对应的旋转角度
 	GLubyte color[3] = { 0, 0, 0 }; //颜色
 	vector<RotateStruct> RotateMemo;  //记录各种旋转属性
 	float D2R(float angle) { return angle * PI / 180; }
@@ -74,14 +72,17 @@ public:
 		this->y += y;
 		this->z += z;
 	}
-	void SaveRotateMatrix(float angle) {
-		savedAngle = angle;
+	void SaveRotateMatrix() {
+		savedAngle = RotateMemo.back().angle;
 		if (RotateMemo.size() == 0) return;
 		traceBack = RotateMemo.size() - 1;
 	}
 	//回溯到之前保存的RotateMatrix
 	void Trace2Saved() {
-		if (traceBack == -1 || traceBack >= RotateMemo.size()) RotateMemo.clear();
+		if (traceBack == -1 || traceBack >= RotateMemo.size()) {
+			RotateMemo.clear();
+			return;
+		}
 		int m = RotateMemo.size() - 1 - traceBack;
 		while (m--) {
 			RotateMemo.pop_back();
@@ -108,7 +109,7 @@ public:
 		if (RotateMemo.size() == 0) return -999;
 		else return RotateMemo.back().angle; }
 
-	const float GetRotateX() const { 
+	const float GetRotateX() const {	
 		if (this->RotateMemo.size() == 0) return 0;
 		return RotateMemo.back().x;
 	}
@@ -264,7 +265,7 @@ protected:
 	float radiusBottom = 0.15f;
 	float height = 1.0f;
 	int accurate = 70;
-	int slice = 20;
+	int slice = 70;
 
 public:
 	Limb(Joint* precursor, string label1, GLubyte color[3],
@@ -282,6 +283,7 @@ public:
 		float r = 0.15, float h = 1.0f, int accurate1 = 70, int slice1 = 20);
 };
 
+//膝盖
 class Knee : public LimbJoint {
 public:
 	Knee(Thigh* thigh, string label1, GLubyte color[3],  float r = 0.15, int slice = 20);

@@ -1,3 +1,4 @@
-﻿  Component.cpp
+﻿  Robot.cpp
 D:\OneDrive\LYZ\University\大三下\机器人可视化技术\工程文件\RobotIkun - 副本 - 副本\RobotIkun\DrawTool.h(14,2): warning C4091: “static ”: 没有声明变量时忽略“DrawTool”的左侧
+D:\OneDrive\LYZ\University\大三下\机器人可视化技术\工程文件\RobotIkun - 副本 - 副本\RobotIkun\MathOperation.h(22,2): warning C4091: “static ”: 没有声明变量时忽略“MathOperation”的左侧
   RobotIkun.vcxproj -> D:\OneDrive\LYZ\University\大三下\机器人可视化技术\工程文件\RobotIkun - 副本 - 副本\Debug\RobotIkun.exe
